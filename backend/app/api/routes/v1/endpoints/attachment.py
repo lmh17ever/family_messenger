@@ -43,7 +43,7 @@ async def get_attachment_url(
         raise HTTPException(404)
     return {"url": url}
 
-@router.post("/{attachment_id}/confirm", response_model=AttachmentOut)
+@router.post("/attachments/{attachment_id}/confirm", response_model=AttachmentOut)
 async def confirm_attachment_endpoint(
     attachment_id: int,
     db: AsyncSession = Depends(get_session),

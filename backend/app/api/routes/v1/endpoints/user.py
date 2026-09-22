@@ -53,14 +53,15 @@ async def confirm_avatar_endpoint(
         raise HTTPException(422, str(e))
     return UserOut.from_user(user)
 
-@router.get("/", response_model=list[UserOut], name="Get user list")
+@router.get("", response_model=list[UserOut], name="Get user list")
 async def get_users_endpoint(
     db: AsyncSession = Depends(get_session),
     _: User = Depends(get_current_user),
+    search: str | None = None,
     offset: int = 0,
     limit: int = 100
 ):
-    users = await get_users(db, offset=offset, limit=limit)
+    users = await get_users(db, offset=offset, limit=limit, search=search, exclude_user_id=_.id)
     return [UserOut.from_user(user) for user in users]
 
 @router.get("/{user_id}", response_model=UserOut, name="Get user")

@@ -40,6 +40,7 @@ class Chat(Base):
         foreign_keys="Chat.last_message_id",
         post_update=True
     )
+    members: Mapped[list["ChatMember"]] = relationship()
 
 
 class ChatMember(Base):
@@ -51,3 +52,4 @@ class ChatMember(Base):
     last_read_message_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("message.id", ondelete="SET NULL")
     )
+    user: Mapped["User"] = relationship()

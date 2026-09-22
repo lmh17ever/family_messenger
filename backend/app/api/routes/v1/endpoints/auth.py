@@ -18,7 +18,7 @@ from app.api.dependencies.session import get_session
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register/", response_model=Token, summary="Register a new user")
+@router.post("/register", response_model=Token, summary="Register a new user")
 async def register_user(user_in: UserCreate, db: AsyncSession = Depends(get_session)):
     """Register a new user account and return JWT tokens."""
     existing_user_by_username = await get_user_by_username(user_in.username)

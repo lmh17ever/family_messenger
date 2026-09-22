@@ -14,8 +14,8 @@ s3 = boto3.client(
     config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
 )
 
-MAX_AVATAR_SIZE = settings.MAX_AVATAR_SIZE
-MAX_ATTACHMENT_SIZE = settings.MAX_ATTACHMENT_SIZE
+MAX_AVATAR_SIZE: int = settings.MAX_AVATAR_SIZE
+MAX_ATTACHMENT_SIZE: int = settings.MAX_ATTACHMENT_SIZE
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 DANGEROUS_INLINE_TYPES = {
     "text/html",

@@ -22,8 +22,19 @@ async def create_user(db: AsyncSession, user_in: UserCreate) -> User:
 async def get_user(db: AsyncSession, user_id) -> User | None:
     return await db.get(User, user_id)
 
-async def get_users(db: AsyncSession, offset: int = 0, limit: int = 100) -> list[User]:
-    stmt = select(User).offset(offset).limit(limit)
+async def get_users(
+    db: AsyncSession,
+    offset: int = 0,
+    limit: int = 100,
+    search: str | None = None,
+    exclude_user_id: int | None = None,
+) -> list[User]:
+    stmt = select(User)
+    if search:
+        stmt = stmt.where(User.username.ilike(f"%{search}%"))
+    if exclude_user_id is not None:
+        stmt = stmt.where(User.id != exclude_user_id)
+    stmt = stmt.offset(offset).limit(limit)
     result = await db.execute(stmt)
     return list(result.scalars().all())
 

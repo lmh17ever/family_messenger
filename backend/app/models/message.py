@@ -1,5 +1,5 @@
 from sqlalchemy import Text, ForeignKey, func, Index, BigInteger, DateTime
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from datetime import datetime
 
@@ -19,6 +19,8 @@ class Message(Base):
     )
     chat_id: Mapped[int] = mapped_column(ForeignKey("chat.id", ondelete="CASCADE"))
     sender_id: Mapped[int | None] = mapped_column(ForeignKey("user.id", ondelete="SET NULL"), nullable=True)
+    sender: Mapped["User | None"] = relationship(foreign_keys=[sender_id])
+    attachments: Mapped[list["Attachment"]] = relationship()
 
     def __repr__(self) -> str:
         return f"Message (id={self.id})"
