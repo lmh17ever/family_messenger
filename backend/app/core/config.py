@@ -9,6 +9,7 @@ class Settings(BaseSettings):
             extra="ignore",
         )
     DATABASE_URL: str
+    REDIS_URL: str = "redis://localhost:6379/0"
 
     # Security
     JWT_SECRET_KEY: str

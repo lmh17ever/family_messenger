@@ -11,6 +11,7 @@ from app.models.user import User
 from app.models.chat import Chat
 from app.models.message import Message
 from app.services.attachments import AttachmentForbidden, AttachmentInvalid, AttachmentNotFound
+from app.services.realtime import chat_connections
 
 
 router = APIRouter(prefix="/chats/{chat_id}/messages", tags=["messages"])
@@ -25,7 +26,12 @@ async def create_message_endpoint(
 ):
     try:
         message = await create_message(db, chat, sender.id, message_in)
-        return await message_to_out(message)
+        response = await message_to_out(message)
+        await chat_connections.broadcast(
+            chat.id,
+            {"type": "message.created", "message": response.model_dump(mode="json")},
+        )
+        return response
     except AttachmentNotFound:
         raise HTTPException(422, "unknown attachment")
     except AttachmentForbidden:
@@ -62,7 +68,12 @@ async def update_message_endpoint(
     if message is None or message.chat_id != chat.id or message.sender_id != sender.id:
         raise HTTPException(404, "Message not found")
     updated = await update_message(db, message_id, message_in.text)
-    return await message_to_out(updated)
+    response = await message_to_out(updated)
+    await chat_connections.broadcast(
+        chat.id,
+        {"type": "message.updated", "message": response.model_dump(mode="json")},
+    )
+    return response
 
 @router.delete("/{message_id}", status_code=204, name="Delete message")
 async def delete_message_endpoint(
@@ -75,3 +86,7 @@ async def delete_message_endpoint(
     if message is None or message.chat_id != chat.id or message.sender_id != sender.id:
         raise HTTPException(404, "Message not found")
     await delete_message(db, message_id)
+    await chat_connections.broadcast(
+        chat.id,
+        {"type": "message.deleted", "message_id": message_id, "chat_id": chat.id},
+    )

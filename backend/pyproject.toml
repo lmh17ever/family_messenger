@@ -15,8 +15,10 @@ dependencies = [
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
     "pyjwt>=2.14.0",
+    "redis[hiredis]>=5.2.0",
     "sqlalchemy[asyncio]>=2.0.54",
     "uvicorn[standard]>=0.53.0",
+    "websockets>=17.1",
 ]
 
 [tool.fastapi]
