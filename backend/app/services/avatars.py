@@ -16,7 +16,7 @@ async def create_avatar_presign(user: User, content_type: str, size: int) -> Ava
 
     ext = content_type.split("/")[1]
     key = f"{user.id}/{uuid4().hex}.{ext}"
-    upload = presign_post(settings.S3_PUBLIC_BUCKET, key, content_type, size)
+    upload = presign_post(settings.S3_PUBLIC_BUCKET, key, content_type, MAX_AVATAR_SIZE)
     return AvatarPresignOut(upload=upload, avatar_key=key)
 
 
