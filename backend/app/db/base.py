@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import (
 from app.core.config import settings
 
 
-engine = create_async_engine(settings.DATABASE_URL, echo=True)
+engine = create_async_engine(settings.DATABASE_URL, echo=settings.ECHO_SQL)
 AsyncSessionLocal = async_sessionmaker(autocommit=False, bind=engine)
 
 
@@ -22,3 +22,4 @@ class Base(DeclarativeBase):
             "pk": "pk_%(table_name)s",
         }
     )
+

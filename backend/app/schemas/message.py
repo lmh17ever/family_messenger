@@ -1,20 +1,18 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class MessageBase(BaseModel):
-    chat_id: int
-    sender_id: int
-    text: str
+class MessageCreate(BaseModel):
+    text: str | None = Field(default=None, max_length=10_000)
+    attachment_ids: list[int] = Field(default_factory=list)
 
 
-class CreateMessage(MessageBase):
-    pass
-
-
-class MessageOut(MessageBase):
-    model_config=ConfigDict(from_attributes=True)
+class MessageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)  # обязательно для ORM-объектов
 
     id: int
+    chat_id: int
+    sender_id: int | None
+    text: str | None
     created_at: datetime

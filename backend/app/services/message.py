@@ -5,6 +5,12 @@ from app.models.message import Message
 
 
 async def get_user_messages(db: AsyncSession, chat_id: int, offset: int = 0, limit: int = 100) -> list[Message]:
-    stmt = select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at.desc()).offset(offset).limit(limit)
+    stmt = (
+        select(Message)
+        .where(Message.chat_id == chat_id)
+        .order_by(Message.id.desc())
+        .offset(offset)
+        .limit(limit)
+    )
     reslut = await db.execute(stmt)
     return list(reslut.scalars().all())

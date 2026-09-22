@@ -1,33 +1,53 @@
+from enum import StrEnum
 from datetime import datetime
 
-from sqlalchemy import UniqueConstraint, ForeignKey, DateTime, func, CheckConstraint, Index
+from sqlalchemy import BigInteger, String, UniqueConstraint, ForeignKey, DateTime, func, CheckConstraint, Index, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
 
+class ChatType(StrEnum):
+    DIRECT = "direct"
+    GROUP = "group"
+
+
 class Chat(Base):
-    __tablename__="chat"
-    __table_args__ = (
-        UniqueConstraint("user1_id", "user2_id", name="uq_chat_pair"),
-        CheckConstraint("user1_id <= user2_id", name="ck_chat_users_order"),
-    )
+    __tablename__ = "chat"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user1_id: Mapped[int] = mapped_column(ForeignKey("user.id", ondelete="CASCADE"))
-    user2_id: Mapped[int] = mapped_column(ForeignKey("user.id", ondelete="CASCADE"))
+    type: Mapped[ChatType] = mapped_column(
+        Enum(ChatType, name="chat_type", values_callable=lambda e: [m.value for m in e]),
+        default=ChatType.DIRECT,
+    )
+    title: Mapped[str | None] = mapped_column(String(128)) # Group only
+    avatar_key: Mapped[str | None] = mapped_column(String(1024), nullable=True) # Group only
+    direct_key: Mapped[str | None] = mapped_column(unique=True) # "3_17",  Direct chat only
     created_at: Mapped[datetime] = mapped_column(
             DateTime(timezone=True),
             server_default=func.now()
         )
-    last_message_at: Mapped[datetime] = mapped_column(
+    last_message_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         index=True
         )
-    messages: Mapped[list["Message"]] = relationship( # type: ignore
-        cascade="all, delete-orphan"
+    last_message_id: Mapped[int | None] = mapped_column(
+        ForeignKey("message.id", ondelete="SET NULL", use_alter=True, name="fk_chat_last_message"),
+        nullable=True
+    )
+    last_message: Mapped["Message | None"] = relationship( # type: ignore
+        foreign_keys="Chat.last_message_id",
+        post_update=True
     )
 
-    def __repr__(self) -> str:
-        return f"Chat (id={self.id}, users={self.user1_id}<->{self.user2_id})"
+
+class ChatMember(Base):
+    __tablename__ = "chat_member"
+    __table_args__ = (Index("ix_chat_member_user_chat", "user_id", "chat_id"),)
+
+    chat_id: Mapped[int] = mapped_column(ForeignKey("chat.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.id", ondelete="CASCADE"), primary_key=True)
+    last_read_message_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("message.id", ondelete="SET NULL")
+    )

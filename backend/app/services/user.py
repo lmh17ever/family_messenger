@@ -4,10 +4,10 @@ from fastapi import Depends
 from sqlalchemy import select
 
 from app.models.user import User
-from app.api.dependencies.session import get_sesion
+from app.api.dependencies.session import get_session
 
 
-async def get_user_by_username(username: str, db: AsyncSession = Depends(get_sesion)) -> User:
+async def get_user_by_username(username: str, db: AsyncSession) -> User:
     stmt = select(User).where(User.username == username)
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()

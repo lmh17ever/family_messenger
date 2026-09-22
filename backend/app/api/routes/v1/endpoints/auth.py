@@ -9,17 +9,17 @@ from app.core.security import (
     jwt,
 )
 from app.schemas.token import RefreshToken, Token
-from app.schemas.user import CreateUser
+from app.schemas.user import UserCreate
 from app.core.config import settings
 from app.services.user import get_user_by_username
 from app.crud.user import create_user
-from app.api.dependencies.session import get_sesion
+from app.api.dependencies.session import get_session
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register/", response_model=Token, summary="Register a new user")
-async def register_user(user_in: CreateUser, db: AsyncSession = Depends(get_sesion)):
+async def register_user(user_in: UserCreate, db: AsyncSession = Depends(get_session)):
     """Register a new user account and return JWT tokens."""
     existing_user_by_username = await get_user_by_username(user_in.username)
     if existing_user_by_username:

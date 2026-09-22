@@ -11,6 +11,7 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(String(30), unique=True, index=True)
+    avatar_key: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     hashed_password: Mapped[str]
     is_active: Mapped[bool] = mapped_column(server_default="true")
     is_superuser: Mapped[bool] = mapped_column(server_default="false")
