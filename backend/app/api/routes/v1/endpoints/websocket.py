@@ -1,4 +1,5 @@
 import asyncio
+import json
 from contextlib import suppress
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -95,14 +96,17 @@ async def chat_websocket(websocket: WebSocket, chat_id: int) -> None:
                     continue
                 message = await create_message(db, chat, user.id, message_in)
                 payload = await message_to_out(message)
-
-            await chat_connections.broadcast(
-                chat_id,
-                {"type": "message.created", "message": payload.model_dump(mode="json")},
-            )
-            await chat_connections.broadcast_chat_users(
-                db, chat_id, {"type": "chat.updated", "chat_id": chat_id}
-            )
+                payload_data = payload.model_dump(mode="json")
+                await chat_connections.broadcast(
+                    chat_id,
+                    {"type": "message.created", "message": payload_data},
+                )
+                await chat_connections.broadcast_chat_users(
+                    db, chat_id, {"type": "chat.updated", "chat_id": chat_id}
+                )
+                await chat_connections.notify_new_message(
+                    db, chat_id, payload_data, user.id
+                )
     except WebSocketDisconnect:
         pass
     finally:

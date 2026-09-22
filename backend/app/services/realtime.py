@@ -41,14 +41,61 @@ class ChatConnectionManager:
         await self._redis.publish(self._user_channel(user_id), json.dumps(payload))
 
     async def broadcast_chat_users(self, db, chat_id: int, payload: dict) -> None:
+        await self.broadcast_chat_users_except(db, chat_id, payload)
+
+    async def broadcast_chat_users_except(
+        self,
+        db,
+        chat_id: int,
+        payload: dict,
+        exclude_user_id: int | None = None,
+    ) -> None:
         from sqlalchemy import select
         from app.models.chat import ChatMember
 
-        user_ids = await db.scalars(
-            select(ChatMember.user_id).where(ChatMember.chat_id == chat_id)
-        )
+        stmt = select(ChatMember.user_id).where(ChatMember.chat_id == chat_id)
+        if exclude_user_id is not None:
+            stmt = stmt.where(ChatMember.user_id != exclude_user_id)
+        user_ids = await db.scalars(stmt)
         for user_id in user_ids:
             await self.broadcast_user(user_id, payload)
+
+    async def notify_new_message(
+        self,
+        db,
+        chat_id: int,
+        message: dict,
+        sender_id: int,
+    ) -> None:
+        from sqlalchemy import func, select
+        from app.models.chat import ChatMember
+        from app.models.message import Message
+
+        members = await db.scalars(
+            select(ChatMember).where(ChatMember.chat_id == chat_id)
+        )
+        for member in members:
+            if member.user_id == sender_id:
+                continue
+            unread_count = await db.scalar(
+                select(func.count(Message.id)).where(
+                    Message.chat_id == chat_id,
+                    Message.id > (member.last_read_message_id or 0),
+                )
+            ) or 0
+            await self.broadcast_user(
+                member.user_id,
+                {
+                    "type": "notification.new_message",
+                    "chat_id": chat_id,
+                    "message_id": message["id"],
+                    "sender_id": sender_id,
+                    "sender": message.get("sender"),
+                    "text": message.get("text"),
+                    "created_at": message.get("created_at"),
+                    "unread_count": unread_count,
+                },
+            )
 
     async def close(self) -> None:
         for listener in list(self._listeners.values()):

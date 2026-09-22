@@ -34,6 +34,9 @@ async def create_message_endpoint(
         await chat_connections.broadcast_chat_users(
             db, chat.id, {"type": "chat.updated", "chat_id": chat.id}
         )
+        await chat_connections.notify_new_message(
+            db, chat.id, response.model_dump(mode="json"), sender.id
+        )
         return response
     except AttachmentNotFound:
         raise HTTPException(422, "unknown attachment")
