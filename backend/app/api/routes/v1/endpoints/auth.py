@@ -21,7 +21,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post("/register", response_model=Token, summary="Register a new user")
 async def register_user(user_in: UserCreate, db: AsyncSession = Depends(get_session)):
     """Register a new user account and return JWT tokens."""
-    existing_user_by_username = await get_user_by_username(user_in.username)
+    existing_user_by_username = await get_user_by_username(user_in.username, db)
     if existing_user_by_username:
         raise HTTPException(status_code=400, detail="Username already registered")
     created_user = await create_user(
