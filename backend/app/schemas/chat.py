@@ -24,6 +24,7 @@ class ChatOut(ChatBase):
     creator_id: int | None = None
     title: str | None = None
     avatar_key: str | None = None
+    avatar_url: str | None = None
     created_at: datetime
     last_message_at: datetime | None = None
     participants: list[UserOut] = Field(default_factory=list)

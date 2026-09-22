@@ -188,6 +188,10 @@ async def chat_to_out(db: AsyncSession, chat: Chat, user_id: int) -> ChatOut:
         creator_id=chat.creator_id,
         title=chat.title,
         avatar_key=chat.avatar_key,
+        avatar_url=(
+            f"{settings.S3_BASE_URL}/{settings.S3_PUBLIC_BUCKET}/{chat.avatar_key}"
+            if chat.avatar_key else None
+        ),
         created_at=chat.created_at,
         last_message_at=chat.last_message_at,
         participants=[UserOut.from_user(member.user) for member in chat.members],

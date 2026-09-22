@@ -35,9 +35,12 @@ async def register_user(user_in: UserCreate, db: AsyncSession = Depends(get_sess
 
 
 @router.post("/token", response_model=Token, summary="Login to get access token")
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+async def login_for_access_token(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: AsyncSession = Depends(get_session),
+):
     """OAuth2 compatible token login, get an access token for future requests."""
-    user = await authenticate_user(form_data.username, form_data.password)
+    user = await authenticate_user(form_data.username, form_data.password, db)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -48,7 +51,10 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 
 
 @router.post("/token/refresh", response_model=Token, summary="Refresh access token")
-async def refresh_token(refresh_token: RefreshToken):
+async def refresh_token(
+    refresh_token: RefreshToken,
+    db: AsyncSession = Depends(get_session),
+):
     """Refresh access token using a valid refresh token."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -62,6 +68,9 @@ async def refresh_token(refresh_token: RefreshToken):
         username: str | None = payload.get("sub")
         is_refresh = payload.get("refresh", False)
         if username is None or not is_refresh:
+            raise credentials_exception
+        user = await get_user_by_username(username, db)
+        if user is None:
             raise credentials_exception
         return create_tokens(username)
     except InvalidTokenError as e:

@@ -3,10 +3,11 @@ from fastapi.exceptions import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.user import UserOut, UserCreate, UsernameUpdate
+from app.schemas.token import Token
 from app.api.dependencies.session import get_session
 from app.crud.user import create_user, delete_user, get_user, get_users
 from app.models.user import User
-from app.core.security import get_current_user
+from app.core.security import create_tokens, get_current_user
 from app.schemas.attachment import AvatarPresignOut
 from app.schemas.storage import AvatarConfirmIn, PresignRequest
 from app.services.attachments import AttachmentInvalid
@@ -30,7 +31,7 @@ async def get_my_user_endpoint(
 ):
     return UserOut.from_user(user)
 
-@router.patch("/me", response_model=UserOut, name="Update my username")
+@router.patch("/me", response_model=Token, name="Update my username")
 async def update_my_user_endpoint(
     data: UsernameUpdate,
     db: AsyncSession = Depends(get_session),
@@ -39,7 +40,7 @@ async def update_my_user_endpoint(
     user.username = data.username
     await db.commit()
     await db.refresh(user)
-    return UserOut.from_user(user)
+    return create_tokens(user.username)
 
 @router.post("/me/avatar/presign", response_model=AvatarPresignOut)
 async def presign_avatar(
