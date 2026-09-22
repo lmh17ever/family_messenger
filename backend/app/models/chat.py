@@ -23,6 +23,9 @@ class Chat(Base):
     title: Mapped[str | None] = mapped_column(String(128)) # Group only
     avatar_key: Mapped[str | None] = mapped_column(String(1024), nullable=True) # Group only
     direct_key: Mapped[str | None] = mapped_column(unique=True) # "3_17",  Direct chat only
+    creator_id: Mapped[int | None] = mapped_column(
+        ForeignKey("user.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
             DateTime(timezone=True),
             server_default=func.now()

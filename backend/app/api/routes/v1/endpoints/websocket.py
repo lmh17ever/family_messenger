@@ -1,3 +1,6 @@
+import asyncio
+from contextlib import suppress
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from jwt.exceptions import InvalidTokenError
 from pydantic import ValidationError
@@ -12,6 +15,7 @@ from app.core.security import jwt
 from app.crud.message import create_message
 from app.services.message import message_to_out
 from app.services.realtime import chat_connections
+from redis.asyncio import Redis
 
 
 router = APIRouter(tags=["realtime"])
@@ -96,7 +100,51 @@ async def chat_websocket(websocket: WebSocket, chat_id: int) -> None:
                 chat_id,
                 {"type": "message.created", "message": payload.model_dump(mode="json")},
             )
+            await chat_connections.broadcast_chat_users(
+                db, chat_id, {"type": "chat.updated", "chat_id": chat_id}
+            )
     except WebSocketDisconnect:
         pass
     finally:
         await chat_connections.disconnect(chat_id, websocket)
+
+
+@router.websocket("/users/me/ws")
+async def user_websocket(websocket: WebSocket) -> None:
+    user = await get_websocket_user(websocket)
+    if user is None:
+        await websocket.close(code=1008, reason="Authentication required")
+        return
+
+    await websocket.accept()
+    redis = Redis.from_url(settings.REDIS_URL, decode_responses=True)
+    pubsub = redis.pubsub()
+    channel = f"user:{user.id}"
+    await pubsub.subscribe(channel)
+    try:
+        await websocket.send_json({"type": "connected"})
+        while True:
+            receive_task = asyncio.create_task(websocket.receive())
+            redis_task = asyncio.create_task(
+                pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+            )
+            done, pending = await asyncio.wait(
+                {receive_task, redis_task},
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            for task in pending:
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
+            if redis_task in done:
+                event = redis_task.result()
+                if event is not None:
+                    await websocket.send_json(json.loads(event["data"]))
+            if receive_task in done:
+                receive_task.result()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await pubsub.unsubscribe(channel)
+        await pubsub.aclose()
+        await redis.aclose()

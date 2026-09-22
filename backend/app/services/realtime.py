@@ -37,6 +37,19 @@ class ChatConnectionManager:
     async def broadcast(self, chat_id: int, payload: dict) -> None:
         await self._redis.publish(self._channel(chat_id), json.dumps(payload))
 
+    async def broadcast_user(self, user_id: int, payload: dict) -> None:
+        await self._redis.publish(self._user_channel(user_id), json.dumps(payload))
+
+    async def broadcast_chat_users(self, db, chat_id: int, payload: dict) -> None:
+        from sqlalchemy import select
+        from app.models.chat import ChatMember
+
+        user_ids = await db.scalars(
+            select(ChatMember.user_id).where(ChatMember.chat_id == chat_id)
+        )
+        for user_id in user_ids:
+            await self.broadcast_user(user_id, payload)
+
     async def close(self) -> None:
         for listener in list(self._listeners.values()):
             listener.cancel()
@@ -49,6 +62,10 @@ class ChatConnectionManager:
     @staticmethod
     def _channel(chat_id: int) -> str:
         return f"chat:{chat_id}"
+
+    @staticmethod
+    def _user_channel(user_id: int) -> str:
+        return f"user:{user_id}"
 
     async def _listen(self, chat_id: int) -> None:
         pubsub = self._redis.pubsub()

@@ -21,6 +21,7 @@ class ChatOut(ChatBase):
 
     id: int
     type: ChatType
+    creator_id: int | None = None
     title: str | None = None
     avatar_key: str | None = None
     created_at: datetime
@@ -37,3 +38,16 @@ class GroupChatCreate(BaseModel):
 
 class ChatReadIn(BaseModel):
     message_id: int | None = None
+
+
+class ChatAvatarConfirmIn(BaseModel):
+    avatar_key: str = Field(min_length=1, max_length=1024)
+
+
+class ChatAvatarPresignIn(BaseModel):
+    content_type: str = Field(min_length=1, max_length=128)
+    size: int = Field(gt=0)
+
+
+class ChatMemberIn(BaseModel):
+    user_id: int

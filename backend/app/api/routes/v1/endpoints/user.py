@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, status
 from fastapi.exceptions import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.schemas.user import UserOut, UserCreate
+from app.schemas.user import UserOut, UserCreate, UsernameUpdate
 from app.api.dependencies.session import get_session
 from app.crud.user import create_user, delete_user, get_user, get_users
 from app.models.user import User
@@ -28,6 +28,17 @@ async def create_user_endpoint(
 async def get_my_user_endpoint(
     user: User = Depends(get_current_user)
 ):
+    return UserOut.from_user(user)
+
+@router.patch("/me", response_model=UserOut, name="Update my username")
+async def update_my_user_endpoint(
+    data: UsernameUpdate,
+    db: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    user.username = data.username
+    await db.commit()
+    await db.refresh(user)
     return UserOut.from_user(user)
 
 @router.post("/me/avatar/presign", response_model=AvatarPresignOut)
@@ -80,6 +91,8 @@ async def delete_user_endpoint(
     db: AsyncSession = Depends(get_session),
     _: User = Depends(get_current_user),
 ):
+    if user_id != _.id:
+        raise HTTPException(status_code=403, detail="Cannot delete another user")
     deleted = await delete_user(db, user_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="User not found")

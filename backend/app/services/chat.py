@@ -5,12 +5,15 @@ from sqlalchemy.orm import selectinload
 from app.api.dependencies.session import get_session
 from app.models.chat import Chat, ChatMember, ChatType
 from app.schemas.chat import ChatCreate, ChatOut
+from app.schemas.attachment import AvatarPresignOut
 from app.schemas.message import MessageOut
 from app.schemas.attachment import AttachmentOut
 from app.schemas.user import UserOut
 from app.models.message import Message
 from app.core.storage import presign_get
 from app.core.config import settings
+from app.core.storage import ALLOWED_IMAGE_TYPES, MAX_AVATAR_SIZE, head_object, presign_post, delete_object
+from uuid import uuid4
 
 
 async def get_or_create_chat_by_user_ids(
@@ -30,6 +33,7 @@ async def get_or_create_chat_by_user_ids(
     chat = Chat(
         type=ChatType.DIRECT,
         direct_key=direct_key,
+        creator_id=user1_id,
     )
     db.add(chat)
     await db.flush()
@@ -55,6 +59,7 @@ async def create_group_chat(
     chat = Chat(
         type=ChatType.GROUP,
         title=title,
+        creator_id=creator_id,
     )
     db.add(chat)
     await db.flush()
@@ -180,6 +185,7 @@ async def chat_to_out(db: AsyncSession, chat: Chat, user_id: int) -> ChatOut:
     return ChatOut(
         id=chat.id,
         type=chat.type,
+        creator_id=chat.creator_id,
         title=chat.title,
         avatar_key=chat.avatar_key,
         created_at=chat.created_at,
@@ -192,3 +198,46 @@ async def chat_to_out(db: AsyncSession, chat: Chat, user_id: int) -> ChatOut:
 async def is_chat_member(db: AsyncSession, chat_id: int, user_id: int) -> bool:
     stmt = select(ChatMember.chat_id).where(ChatMember.chat_id == chat_id, ChatMember.user_id == user_id)
     return (await db.scalar(stmt)) is not None
+
+async def create_chat_avatar_presign(
+    chat: Chat, content_type: str, size: int
+) -> AvatarPresignOut:
+    from app.services.attachments import AttachmentInvalid
+
+    if content_type not in ALLOWED_IMAGE_TYPES or not (0 < size <= MAX_AVATAR_SIZE):
+        raise AttachmentInvalid("invalid group avatar")
+    key = f"chats/{chat.id}/avatar/{uuid4().hex}.{content_type.split('/')[-1]}"
+    return AvatarPresignOut(
+        upload=presign_post(settings.S3_PUBLIC_BUCKET, key, content_type, size),
+        avatar_key=key,
+    )
+
+async def confirm_chat_avatar(db: AsyncSession, chat: Chat, avatar_key: str) -> Chat:
+    from app.services.attachments import AttachmentInvalid
+
+    if not avatar_key.startswith(f"chats/{chat.id}/avatar/"):
+        raise AttachmentInvalid("invalid group avatar key")
+    if await head_object(settings.S3_PUBLIC_BUCKET, avatar_key) is None:
+        raise AttachmentInvalid("file not found in storage")
+    old_key = chat.avatar_key
+    chat.avatar_key = avatar_key
+    await db.commit()
+    await db.refresh(chat)
+    if old_key and old_key != avatar_key:
+        await delete_object(settings.S3_PUBLIC_BUCKET, old_key)
+    return chat
+
+async def add_chat_member(db: AsyncSession, chat_id: int, user_id: int) -> ChatMember:
+    member = ChatMember(chat_id=chat_id, user_id=user_id)
+    db.add(member)
+    await db.commit()
+    await db.refresh(member)
+    return member
+
+async def remove_chat_member(db: AsyncSession, chat_id: int, user_id: int) -> bool:
+    member = await db.scalar(select(ChatMember).where(ChatMember.chat_id == chat_id, ChatMember.user_id == user_id))
+    if member is None:
+        return False
+    await db.delete(member)
+    await db.commit()
+    return True

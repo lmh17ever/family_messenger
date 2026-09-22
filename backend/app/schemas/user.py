@@ -12,6 +12,10 @@ class UserCreate(UserBase):
     password: str = Field(min_length=1)
 
 
+class UsernameUpdate(BaseModel):
+    username: str = Field(min_length=1, max_length=30)
+
+
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
