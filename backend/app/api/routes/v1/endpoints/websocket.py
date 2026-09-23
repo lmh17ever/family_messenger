@@ -145,7 +145,10 @@ async def user_websocket(websocket: WebSocket) -> None:
                 if event is not None:
                     await websocket.send_json(json.loads(event["data"]))
             if receive_task in done:
-                receive_task.result()
+                message = receive_task.result()
+
+                if message["type"] == "websocket.disconnect":
+                    break
     except WebSocketDisconnect:
         pass
     finally:

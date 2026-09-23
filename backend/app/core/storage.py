@@ -32,6 +32,17 @@ def needs_forced_download(content_type: str) -> bool:
     return content_type in DANGEROUS_INLINE_TYPES
 
 def presign_post(bucket: str, key: str, content_type: str, max_size: int) -> dict:
+    url = s3.generate_presigned_post(
+        Bucket=bucket,
+        Key=key,
+        Fields={"Content-Type": content_type},
+        Conditions=[
+            {"Content-Type": content_type},
+            ["content-length-range", 1, max_size],
+        ],
+        ExpiresIn=300,
+    )
+    print(url)
     return s3.generate_presigned_post(
         Bucket=bucket,
         Key=key,

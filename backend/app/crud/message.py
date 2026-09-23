@@ -1,6 +1,7 @@
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.exceptions import HTTPException
+from sqlalchemy.orm import selectinload
 
 from app.models.message import Message
 from app.models.chat import Chat
@@ -27,9 +28,12 @@ async def create_message(db: AsyncSession, chat: Chat, sender_id: int, message_i
     for att in attachments:
         att.message_id = message.id
     await db.commit()
-    await db.refresh(message)
-    await db.refresh(message, ["sender", "attachments"])
-    return message
+    result = await db.execute(
+        select(Message)
+        .options(selectinload(Message.sender), selectinload(Message.attachments))
+        .where(Message.id == message.id)
+    )
+    return result.scalar_one()
 
 async def delete_message(db: AsyncSession, message_id) -> bool:
     message = await db.get(Message, message_id)

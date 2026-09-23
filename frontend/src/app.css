@@ -1,0 +1,79 @@
+@import 'tailwindcss';
+
+@font-face {
+	font-family: 'HIbiny';
+	src: url('/fonts/Montserrat-VariableFont_wght.ttf') format('truetype');
+	font-weight: 400;
+	font-style: normal;
+	font-display: block;
+}
+
+/* Skeleton: ядро (theme + CSS-утилиты), компоненты, тема crimson */
+@import '@skeletonlabs/skeleton';
+@import '@skeletonlabs/skeleton-svelte';
+@import '@skeletonlabs/skeleton/themes/crimson';
+
+/* Тема строго тёмная: включается атрибутом data-mode="dark" на <html> (src/app.html),
+	поэтому переопределяем стратегию dark-варианта Tailwind. */
+@custom-variant dark (&:where([data-mode='dark'], [data-mode='dark'] *));
+
+[data-theme='crimson'] {
+	--typo-base--font-family: 'HIbiny', sans-serif;
+	--typo-heading--font-family: 'HIbiny', sans-serif;
+	--radius-base: 0.5rem;
+	--radius-container: 0.75rem;
+}
+
+@layer base {
+	html,
+	body {
+		height: 100%;
+	}
+
+	body {
+		overscroll-behavior: none;
+	}
+}
+
+@layer components {
+	/* Тонкие скроллбары для списка чатов и ленты сообщений */
+	.app-scroll {
+		scrollbar-width: thin;
+		scrollbar-color: var(--color-surface-600-400) transparent;
+	}
+
+	/* Пузырь сообщения */
+	.app-bubble {
+		@apply max-w-[80%] rounded-2xl px-2 pt-2 pb-0.5 text-sm;
+	}
+
+	/* Плавное появление нового сообщения */
+	.app-bubble-new {
+		animation: app-pop 180ms ease-out;
+	}
+
+	@keyframes app-pop {
+		from {
+			opacity: 0;
+			transform: translateY(4px) scale(0.99);
+		}
+		to {
+			opacity: 1;
+			transform: none;
+		}
+	}
+
+	/* Затемнение под модалками и лайтбоксом */
+	.app-backdrop {
+		@apply fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm;
+	}
+
+	/* Индикатор загрузки файла */
+	.app-progress {
+		@apply h-1 w-full overflow-hidden rounded-full bg-surface-300-700;
+	}
+
+	.app-progress-bar {
+		@apply h-full rounded-full bg-primary-500 transition-[width] duration-150;
+	}
+}
