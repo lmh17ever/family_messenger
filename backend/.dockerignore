@@ -1,0 +1,40 @@
+# Python
+__pycache__
+*.py[codz]
+*$py.class
+*.so
+.venv
+venv
+env
+ENV
+
+# Alembic / DB
+*.db
+*.sqlite3
+*.rdb
+*.aof
+
+# Env files (injected by docker-compose at runtime)
+.env
+.env.*
+
+# Build artifacts
+dist
+build
+.eggs
+*.egg-info
+.installed.cfg
+
+# IDE / Editor
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore

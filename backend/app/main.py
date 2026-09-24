@@ -29,5 +29,10 @@ app.add_middleware(
 app.include_router(v1_router)
 
 
+@app.get("/api/v1/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0")

@@ -1,0 +1,35 @@
+# Dependencies
+node_modules
+
+# Build outputs (we build inside Docker, not needed in context)
+.svelte-kit
+build
+.output
+
+# Environment files (we pass via build ARGs, not copy)
+.env
+.env.*
+!.env.example
+!.env.test
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Vite / SvelteKit cache
+.vite
+.svelte-kit
+
+# Editor / IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Git
+.git
+.gitignore
