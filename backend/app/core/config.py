@@ -8,8 +8,18 @@ class Settings(BaseSettings):
             env_ignore_empty=True,
             extra="ignore",
         )
+
+    DEBUG: bool = False
+    
     DATABASE_URL: str
     REDIS_URL: str = "redis://localhost:6379/0"
+
+    # Uvicorn
+    UVICORN_HOST: str = "0.0.0.0"
+    UVICORN_PORT: int = 8000
+    WS_MAX_SIZE: int = 65536
+    WORKERS: int | None = None
+    LIMIT_CONCURRENCY: int | None = 1000
 
     # Security
     JWT_SECRET_KEY: str

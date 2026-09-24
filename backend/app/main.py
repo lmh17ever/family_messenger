@@ -12,11 +12,17 @@ from app.services.realtime import chat_connections
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    yield
-    await chat_connections.close()
+    try:
+        yield
+    finally:
+        await chat_connections.close()
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    lifespan=lifespan,
+    docs_url="/docs" if settings.DEBUG else None,
+    redoc_url="/redoc" if settings.DEBUG else None,
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -28,11 +34,13 @@ app.add_middleware(
 
 app.include_router(v1_router)
 
-
-@app.get("/api/v1/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
-
-
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="0.0.0.0")
+    uvicorn.run(
+        "app.main:app",
+        host=settings.UVICORN_HOST,
+        port=settings.UVICORN_PORT,
+        reload=settings.DEBUG,
+        ws_max_size=settings.WS_MAX_SIZE,
+        workers=settings.WORKERS,
+        limit_concurrency=settings.LIMIT_CONCURRENCY
+    )

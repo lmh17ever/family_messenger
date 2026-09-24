@@ -10,6 +10,10 @@ from app.api.routes.v1.endpoints.websocket import router as websocket_router
 
 v1_router = APIRouter(prefix="/api/v1")
 
+@v1_router.get("/health")
+async def health() -> dict[str, str]:
+    return {"status": "ok"}
+
 v1_router.include_router(user_router)
 v1_router.include_router(auth_router)
 v1_router.include_router(chat_router)
