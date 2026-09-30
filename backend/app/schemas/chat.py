@@ -12,8 +12,7 @@ class ChatBase(BaseModel):
 
 
 class ChatCreate(ChatBase):
-    user1_id: int
-    user2_id: int
+    target_user_id: int
 
 
 class ChatOut(ChatBase):

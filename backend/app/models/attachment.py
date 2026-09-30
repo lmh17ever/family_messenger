@@ -13,8 +13,8 @@ class Attachment(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     key: Mapped[str] = mapped_column(String(255), unique=True)
     chat_id: Mapped[int] = mapped_column(ForeignKey("chat.id", ondelete="CASCADE"), index=True)
-    uploader_id: Mapped[int | None] = mapped_column(ForeignKey("user.id", ondelete="SET NULL"))
-    message_id: Mapped[int | None] = mapped_column(
+    uploader_id: Mapped[int | None] = mapped_column(ForeignKey("user.id", ondelete="SET NULL"), index=True)
+    message_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("message.id", ondelete="CASCADE"), index=True
     ) 
     filename: Mapped[str] = mapped_column(String(255))

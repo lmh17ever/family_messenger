@@ -40,7 +40,7 @@ async def update_my_user_endpoint(
     user.username = data.username
     await db.commit()
     await db.refresh(user)
-    return create_tokens(user.username)
+    return create_tokens(user.id)
 
 @router.post("/me/avatar/presign", response_model=AvatarPresignOut)
 async def presign_avatar(
@@ -68,12 +68,12 @@ async def confirm_avatar_endpoint(
 @router.get("", response_model=list[UserOut], name="Get user list")
 async def get_users_endpoint(
     db: AsyncSession = Depends(get_session),
-    _: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     search: str | None = None,
     offset: int = 0,
     limit: int = 100
 ):
-    users = await get_users(db, offset=offset, limit=limit, search=search, exclude_user_id=_.id)
+    users = await get_users(db, offset=offset, limit=limit, search=search, exclude_user_id=user.id)
     return [UserOut.from_user(user) for user in users]
 
 @router.get("/{user_id}", response_model=UserOut, name="Get user")
@@ -90,9 +90,9 @@ async def get_user_endpoint(
 async def delete_user_endpoint(
     user_id: int,
     db: AsyncSession = Depends(get_session),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    if user_id != _.id:
+    if not current_user.is_superuser or current_user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot delete another user")
     deleted = await delete_user(db, user_id)
     if not deleted:

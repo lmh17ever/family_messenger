@@ -2,74 +2,49 @@ import asyncio
 import json
 from contextlib import suppress
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from jwt.exceptions import InvalidTokenError
 from pydantic import ValidationError
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies.session import AsyncSessionLocal
+from app.api.dependencies.session import get_session
 from app.core.config import settings
-from app.models.chat import Chat, ChatMember
+from app.models.chat import Chat
 from app.models.user import User
 from app.schemas.message import MessageCreate
 from app.core.security import jwt
 from app.crud.message import create_message
 from app.services.message import message_to_out
-from app.services.realtime import chat_connections
+from app.services.chat import is_chat_member
 from redis.asyncio import Redis
+from app.api.dependencies.realtime import get_websocket_user
+from app.core.realtime.websocket_manager import websocket_manager
+from app.core.realtime.redis_manager import redis_manager
+from app.services.realtime.event_service import event_service
 
 
 router = APIRouter(tags=["realtime"])
 
 
-async def get_websocket_user(websocket: WebSocket) -> User | None:
-    token = websocket.query_params.get("token")
-    authorization = websocket.headers.get("authorization", "")
-    if not token and authorization.lower().startswith("bearer "):
-        token = authorization[7:]
-    if not token:
-        return None
-
-    try:
-        payload = jwt.decode(
-            token,
-            settings.JWT_SECRET_KEY,
-            algorithms=[settings.JWT_ALGORITHM],
-        )
-        username = payload.get("sub")
-        if not username or payload.get("refresh", False):
-            return None
-    except InvalidTokenError:
-        return None
-
-    async with AsyncSessionLocal() as db:
-        return await db.scalar(select(User).where(User.username == username))
-
-
-async def is_member(db, chat_id: int, user_id: int) -> bool:
-    return (
-        await db.scalar(
-            select(ChatMember.chat_id).where(
-                ChatMember.chat_id == chat_id,
-                ChatMember.user_id == user_id,
-            )
-        )
-    ) is not None
-
-
 @router.websocket("/chats/{chat_id}/ws")
-async def chat_websocket(websocket: WebSocket, chat_id: int) -> None:
-    user = await get_websocket_user(websocket)
+async def chat_websocket(
+    websocket: WebSocket,
+    chat_id: int,
+    db: AsyncSession = Depends(get_session),
+    user: User | None = Depends(get_websocket_user),
+) -> None:
     if user is None:
         await websocket.close(code=1008, reason="Authentication required")
         return
 
-    async with AsyncSessionLocal() as db:
-        if not await is_member(db, chat_id, user.id):
-            await websocket.close(code=1008, reason="Chat membership required")
-            return
+    if not await is_chat_member(db, chat_id, user.id):
+        await websocket.close(code=1008, reason="Chat membership required")
+        return
 
-    await chat_connections.connect(chat_id, websocket)
+    await websocket_manager.connect(
+        event_service.generate_chat_channel_name(chat_id),
+        websocket)
     try:
         await websocket.send_json({"type": "connected", "chat_id": chat_id})
         while True:
@@ -89,69 +64,55 @@ async def chat_websocket(websocket: WebSocket, chat_id: int) -> None:
             except ValidationError as error:
                 await websocket.send_json({"type": "error", "detail": error.errors()})
                 continue
-            async with AsyncSessionLocal() as db:
-                chat = await db.get(Chat, chat_id)
-                if chat is None:
-                    await websocket.send_json({"type": "error", "detail": "Chat not found"})
-                    continue
-                message = await create_message(db, chat, user.id, message_in)
-                payload = await message_to_out(message)
-                payload_data = payload.model_dump(mode="json")
-                await chat_connections.broadcast(
-                    chat_id,
-                    {"type": "message.created", "message": payload_data},
-                )
-                await chat_connections.broadcast_chat_users(
-                    db, chat_id, {"type": "chat.updated", "chat_id": chat_id}
-                )
-                await chat_connections.notify_new_message(
-                    db, chat_id, payload_data, user.id
-                )
+            chat = await db.get(Chat, chat_id)
+            if chat is None:
+                await websocket.send_json({"type": "error", "detail": "Chat not found"})
+                continue
+            message = await create_message(db, chat, user.id, message_in)
+            payload = message_to_out(message)
+            payload_data = payload.model_dump(mode="json")
+            await redis_manager.publish(
+                event_service.generate_chat_channel_name(chat_id),
+                {"type": "message.created", "message": payload_data},
+            )
+            await event_service.broadcast_chat_users(
+                db, chat_id, {"type": "chat.updated", "chat_id": chat_id}
+            )
+            await event_service.notify_new_message(
+                db, chat_id, payload_data, user.id
+            )
     except WebSocketDisconnect:
         pass
     finally:
-        await chat_connections.disconnect(chat_id, websocket)
+        await websocket_manager.disconnect(event_service.generate_chat_channel_name(chat_id), websocket)
 
 
 @router.websocket("/users/me/ws")
-async def user_websocket(websocket: WebSocket) -> None:
-    user = await get_websocket_user(websocket)
+async def user_websocket(websocket: WebSocket, user: User | None = Depends(get_websocket_user)) -> None:
     if user is None:
         await websocket.close(code=1008, reason="Authentication required")
         return
 
-    await websocket.accept()
-    redis = Redis.from_url(settings.REDIS_URL, decode_responses=True)
-    pubsub = redis.pubsub()
-    channel = f"user:{user.id}"
-    await pubsub.subscribe(channel)
+    await websocket_manager.connect(
+        event_service.generate_user_channel_name(user.id),
+        websocket
+    )
     try:
         await websocket.send_json({"type": "connected"})
         while True:
-            receive_task = asyncio.create_task(websocket.receive())
-            redis_task = asyncio.create_task(
-                pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
-            )
-            done, pending = await asyncio.wait(
-                {receive_task, redis_task},
-                return_when=asyncio.FIRST_COMPLETED,
-            )
-            for task in pending:
-                task.cancel()
-                with suppress(asyncio.CancelledError):
-                    await task
-            if redis_task in done:
-                event = redis_task.result()
-                if event is not None:
-                    await websocket.send_json(json.loads(event["data"]))
-            if receive_task in done:
-                message = receive_task.result()
+            event = await websocket.receive_json()
+            event_type = event.get("type")
 
-                if message["type"] == "websocket.disconnect":
-                    break
+            if event_type == "ping":
+                await websocket.send_json({"type": "pong"})
+                continue
+
+            await websocket.send_json({
+                "type": "error",
+                "detail": f"Unknown event type: {event_type}"
+            })
+
     except WebSocketDisconnect:
         pass
     finally:
-        await pubsub.unsubscribe(channel)
-        await pubsub.aclose()
-        await redis.aclose()
+        await websocket_manager.disconnect(event_service.generate_user_channel_name(user.id), websocket)

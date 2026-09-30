@@ -13,8 +13,6 @@ from app.core.storage import delete_object
 
 
 async def create_message(db: AsyncSession, chat: Chat, sender_id: int, message_in: MessageCreate) -> Message:
-    if chat is None:
-        raise HTTPException(404, "Chat not found")
     attachments = await resolve_attachments_for_message(db, chat.id, sender_id, message_in.attachment_ids)
     message = Message(
         text=message_in.text,
@@ -25,17 +23,18 @@ async def create_message(db: AsyncSession, chat: Chat, sender_id: int, message_i
     await db.flush()
     chat.last_message_at = func.now()
     chat.last_message_id = message.id
+    message_id = message.id
     for att in attachments:
         att.message_id = message.id
     await db.commit()
     result = await db.execute(
         select(Message)
         .options(selectinload(Message.sender), selectinload(Message.attachments))
-        .where(Message.id == message.id)
+        .where(Message.id == message_id)
     )
     return result.scalar_one()
 
-async def delete_message(db: AsyncSession, message_id) -> bool:
+async def delete_message(db: AsyncSession, message_id: int) -> bool:
     message = await db.get(Message, message_id)
     if message is None:
         return False
@@ -50,21 +49,16 @@ async def delete_message(db: AsyncSession, message_id) -> bool:
     was_last_message = chat is not None and chat.last_message_id == message.id
     await db.delete(message)
     if was_last_message and chat is not None:
-        replacement = await db.scalar(
-            select(Message.id)
-            .where(Message.chat_id == message.chat_id, Message.id != message.id)
-            .order_by(Message.id.desc())
-            .limit(1)
-        )
-        chat.last_message_id = replacement
-        chat.last_message_at = (
-            await db.scalar(
-                select(func.max(Message.created_at)).where(
-                    Message.chat_id == message.chat_id,
-                    Message.id != message.id,
+        replacement = (
+            await db.execute(
+                    select(Message.id, Message.created_at)
+                    .where(Message.chat_id == message.chat_id, Message.id != message.id)
+                    .order_by(Message.id.desc())
+                    .limit(1)
                 )
-            )
-        )
+            ).first()
+        chat.last_message_id = replacement.id if replacement else None
+        chat.last_message_at = replacement.created_at if replacement else None
     await db.commit()
     for key in keys:
         await delete_object(settings.S3_PRIVATE_BUCKET, key)

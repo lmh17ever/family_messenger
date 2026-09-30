@@ -10,8 +10,24 @@ class Settings(BaseSettings):
         )
 
     DEBUG: bool = False
-    
-    DATABASE_URL: str
+
+    # Database
+    DB_ENGINE: str = "postgresql+asyncpg"
+    DB_USER: str
+    DB_PASSWORD: str
+    DB_HOST: str
+    DB_PORT: int
+    DB_NAME: str
+
+    ECHO: bool = False
+    ECHO_POOL: bool = False
+    POOL_SIZE: int = 5
+    MAX_OVERFLOW: int = 10
+    POOL_TIMEOUT: int = 30
+    POOL_RECYCLE: int = 1800
+    POOL_PRE_PING: bool = True
+
+    # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
 
     # Uvicorn
@@ -22,7 +38,8 @@ class Settings(BaseSettings):
     LIMIT_CONCURRENCY: int | None = 1000
 
     # Security
-    JWT_SECRET_KEY: str
+    JWT_ACCESS_SECRET_KEY: str
+    JWT_REFRESH_SECRET_KEY: str
     JWT_ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     REFRESH_TOKEN_EXPIRE_DAYS: int
@@ -33,7 +50,6 @@ class Settings(BaseSettings):
     ALLOW_HEADERS: list[str]
 
     # S3 Storage
-
     S3_ENDPOINT: str
     S3_REGION: str = "default"
     S3_ACCESS_KEY: str
@@ -41,10 +57,14 @@ class Settings(BaseSettings):
     S3_PRIVATE_BUCKET: str
     S3_PUBLIC_BUCKET: str
     S3_BASE_URL: str
-    ECHO_SQL: bool = False
+    S3_TTL: int = 300
 
     MAX_AVATAR_SIZE: int
     MAX_ATTACHMENT_SIZE: int
+
+    @property
+    def DATABASE_URL(self) -> str:
+        return f"{self.DB_ENGINE}://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
     @field_validator("MAX_ATTACHMENT_SIZE", "MAX_AVATAR_SIZE", mode="before")
     @classmethod

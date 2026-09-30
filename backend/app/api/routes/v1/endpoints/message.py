@@ -11,7 +11,8 @@ from app.models.user import User
 from app.models.chat import Chat
 from app.models.message import Message
 from app.services.attachments import AttachmentForbidden, AttachmentInvalid, AttachmentNotFound
-from app.services.realtime import chat_connections
+from app.core.realtime.redis_manager import redis_manager
+from app.services.realtime.event_service import event_service
 
 
 router = APIRouter(prefix="/chats/{chat_id}/messages", tags=["messages"])
@@ -26,16 +27,17 @@ async def create_message_endpoint(
 ):
     try:
         message = await create_message(db, chat, sender.id, message_in)
-        response = await message_to_out(message)
-        await chat_connections.broadcast(
-            chat.id,
-            {"type": "message.created", "message": response.model_dump(mode="json")},
+        response = message_to_out(message)
+        response_json = response.model_dump(mode="json")
+        await redis_manager.publish(
+            event_service.generate_chat_channel_name(chat.id),
+            {"type": "message.created", "message": response_json},
         )
-        await chat_connections.broadcast_chat_users(
+        await event_service.broadcast_chat_users(
             db, chat.id, {"type": "chat.updated", "chat_id": chat.id}
         )
-        await chat_connections.notify_new_message(
-            db, chat.id, response.model_dump(mode="json"), sender.id
+        await event_service.notify_new_message(
+            db, chat.id, response_json, sender.id
         )
         return response
     except AttachmentNotFound:
@@ -48,7 +50,7 @@ async def create_message_endpoint(
 @router.get("", response_model=list[MessageOut], name="Get messages")
 async def get_messages_endpoint(
     chat: Chat = Depends(get_chat_as_member),
-    offset:int = 0,
+    before_id:int | None = None,
     limit: int = 100,
     search: str | None = None,
     db: AsyncSession = Depends(get_session)
@@ -56,11 +58,11 @@ async def get_messages_endpoint(
     messages = await get_user_messages(
         db=db,
         chat_id=chat.id,
-        offset=offset,
+        before_id=before_id,
         limit=limit,
         search=search,
     )
-    return [await message_to_out(message) for message in messages]
+    return [message_to_out(message) for message in messages]
 
 @router.patch("/{message_id}", response_model=MessageOut, name="Edit message")
 async def update_message_endpoint(
@@ -73,10 +75,10 @@ async def update_message_endpoint(
     message = await db.get(Message, message_id)
     if message is None or message.chat_id != chat.id or message.sender_id != sender.id:
         raise HTTPException(404, "Message not found")
-    updated = await update_message(db, message_id, message_in.text)
-    response = await message_to_out(updated)
-    await chat_connections.broadcast(
-        chat.id,
+    updated = await update_message(db, message, message_in.text)
+    response = message_to_out(updated)
+    await redis_manager.publish(
+        event_service.generate_chat_channel_name(chat.id),
         {"type": "message.updated", "message": response.model_dump(mode="json")},
     )
     return response
@@ -92,7 +94,7 @@ async def delete_message_endpoint(
     if message is None or message.chat_id != chat.id or message.sender_id != sender.id:
         raise HTTPException(404, "Message not found")
     await delete_message(db, message_id)
-    await chat_connections.broadcast(
-        chat.id,
+    await redis_manager.publish(
+        event_service.generate_chat_channel_name(chat.id),
         {"type": "message.deleted", "message_id": message_id, "chat_id": chat.id},
     )

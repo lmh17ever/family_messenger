@@ -7,7 +7,17 @@ from sqlalchemy.ext.asyncio import (
 from app.core.config import settings
 
 
-engine = create_async_engine(settings.DATABASE_URL, echo=settings.ECHO_SQL)
+engine = create_async_engine(
+    url=settings.DATABASE_URL,
+    echo=settings.ECHO,
+    echo_pool=settings.ECHO_POOL,
+    pool_size=settings.POOL_SIZE,
+    max_overflow=settings.MAX_OVERFLOW,
+    pool_timeout=settings.POOL_TIMEOUT,
+    pool_recycle=settings.POOL_RECYCLE,
+    pool_pre_ping=settings.POOL_PRE_PING
+)
+
 AsyncSessionLocal = async_sessionmaker(
     autocommit=False,
     bind=engine,
@@ -20,7 +30,7 @@ class Base(DeclarativeBase):
         naming_convention={
             "ix": "ix_%(column_0_label)s",
             "uq": "uq_%(table_name)s_%(column_0_name)s",
-            "ck": "ck_%(table_name)s_`%(constraint_name)s`",
+            "ck": "ck_%(table_name)s_%(constraint_name)s",
             "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
             "pk": "pk_%(table_name)s",
         }

@@ -7,7 +7,11 @@ class AttachmentOut(BaseModel):
     filename: str
     content_type: str
     size: int
-    url: str | None = None
+    url: str
+
+
+class AttachmentURLOut(BaseModel):
+    url: str
 
 
 class AvatarPresignOut(BaseModel):

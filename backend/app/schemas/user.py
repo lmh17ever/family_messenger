@@ -9,11 +9,11 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    password: str = Field(min_length=1)
+    password: str = Field(min_length=6, max_length=72)
 
 
-class UsernameUpdate(BaseModel):
-    username: str = Field(min_length=1, max_length=30)
+class UsernameUpdate(UserBase):
+    pass
 
 
 class UserOut(BaseModel):
@@ -24,7 +24,7 @@ class UserOut(BaseModel):
     avatar_url: str | None = None
 
     @classmethod
-    def from_user(cls, user: "User") -> "UserOut":
+    def from_user(cls, user: User) -> UserOut:
         return cls(
             id=user.id,
             username=user.username,

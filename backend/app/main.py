@@ -7,7 +7,7 @@ import uvicorn
 
 from app.api.routes.router import v1_router
 from app.core.config import settings
-from app.services.realtime import chat_connections
+from app.core.realtime.websocket_manager import websocket_manager
 
 
 @asynccontextmanager
@@ -15,8 +15,7 @@ async def lifespan(_: FastAPI):
     try:
         yield
     finally:
-        await chat_connections.close()
-
+        await websocket_manager.close()
 
 app = FastAPI(
     lifespan=lifespan,

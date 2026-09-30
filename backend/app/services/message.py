@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.models.message import Message
 from app.schemas.attachment import AttachmentOut
@@ -13,24 +13,25 @@ from app.core.storage import presign_get
 async def get_user_messages(
     db: AsyncSession,
     chat_id: int,
-    offset: int = 0,
+    before_id: int | None = None,
     limit: int = 100,
     search: str | None = None,
 ) -> list[Message]:
+    stmt = select(Message).where(Message.chat_id == chat_id)
+    if before_id:
+        stmt = stmt.where(Message.id < before_id)
     stmt = (
-        select(Message)
-        .options(selectinload(Message.sender), selectinload(Message.attachments))
-        .where(Message.chat_id == chat_id)
+        stmt
+        .options(joinedload(Message.sender), selectinload(Message.attachments))
         .order_by(Message.id.desc())
-        .offset(offset)
         .limit(limit)
     )
     if search:
-        stmt = stmt.where(Message.text.ilike(f"%{search}%"))
-    reslut = await db.execute(stmt)
-    return list(reslut.scalars().all())
+        stmt = stmt.where(Message.text.icontains(search, autoescape=True))
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
 
-async def message_to_out(message: Message) -> MessageOut:
+def message_to_out(message: Message) -> MessageOut:
     return MessageOut(
         id=message.id,
         chat_id=message.chat_id,
@@ -55,12 +56,8 @@ async def message_to_out(message: Message) -> MessageOut:
         ],
     )
 
-async def update_message(db: AsyncSession, message_id: int, text: str | None) -> Message | None:
-    message = await db.get(Message, message_id)
-    if message is None:
-        return None
+async def update_message(db: AsyncSession, message: Message, text: str | None) -> Message:
     message.text = text
     await db.commit()
-    await db.refresh(message)
     await db.refresh(message, ["sender", "attachments"])
     return message

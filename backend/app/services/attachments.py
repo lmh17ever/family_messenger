@@ -1,5 +1,3 @@
-from uuid import uuid4
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -45,10 +43,10 @@ async def create_attachment_presign(
         filename=data.filename, content_type=data.content_type, size=data.size,
     )
     db.add(attachment)
+    upload = presign_post(settings.S3_PRIVATE_BUCKET, key, data.content_type, data.size)
     await db.commit()
     await db.refresh(attachment)
 
-    upload = presign_post(settings.S3_PRIVATE_BUCKET, key, data.content_type, data.size)
     return attachment, upload
 
 

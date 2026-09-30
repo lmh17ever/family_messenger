@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from starlette.concurrency import run_in_threadpool
 
 from app.schemas.user import UserCreate
 from app.models.user import User
@@ -12,14 +13,14 @@ from app.core.storage import delete_object
 async def create_user(db: AsyncSession, user_in: UserCreate) -> User:
     user = User(
         username=user_in.username,
-        hashed_password=hash_password(user_in.password)
+        hashed_password=await run_in_threadpool(hash_password, user_in.password)
     )
     db.add(user)
     await db.commit()
     await db.refresh(user)
     return user
 
-async def get_user(db: AsyncSession, user_id) -> User | None:
+async def get_user(db: AsyncSession, user_id: int) -> User | None:
     return await db.get(User, user_id)
 
 async def get_users(
@@ -31,7 +32,7 @@ async def get_users(
 ) -> list[User]:
     stmt = select(User)
     if search:
-        stmt = stmt.where(User.username.ilike(f"%{search}%"))
+        stmt = stmt.where(User.username.icontains(search, autoescape=True))
     if exclude_user_id is not None:
         stmt = stmt.where(User.id != exclude_user_id)
     stmt = stmt.offset(offset).limit(limit)

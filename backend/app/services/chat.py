@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import func, select, or_
+from sqlalchemy import and_, func, select, or_
 from sqlalchemy.orm import selectinload
 
 from app.api.dependencies.session import get_session
@@ -33,7 +33,6 @@ async def get_or_create_chat_by_user_ids(
     chat = Chat(
         type=ChatType.DIRECT,
         direct_key=direct_key,
-        creator_id=user1_id,
     )
     db.add(chat)
     await db.flush()
@@ -79,6 +78,23 @@ async def create_group_chat(
 
     return chat
 
+async def get_unread_counts(db: AsyncSession, chat_ids: list[int], user_id: int) -> dict[int, int]:
+    stmt = (
+        select(Message.chat_id, func.count(Message.id))
+        .join(ChatMember, and_(
+            ChatMember.chat_id == Message.chat_id,
+            ChatMember.user_id == user_id
+        ))
+        .where(
+            Message.id > func.coalesce(ChatMember.last_read_message_id, 0),
+            Message.chat_id.in_(chat_ids),
+            Message.sender_id != user_id
+        )
+        .group_by(Message.chat_id)
+    )
+    result = await db.execute(stmt)
+    return dict(result.all())  # type: ignore[arg-type]
+
 async def get_my_chats(db: AsyncSession, user_id: int, offset: int = 0, limit: int = 100) -> list[Chat]:
     stmt = (
         select(Chat)
@@ -112,49 +128,14 @@ async def get_chat_for_user(db: AsyncSession, chat_id: int, user_id: int) -> Cha
     return await db.scalar(stmt)
 
 async def mark_chat_read(
-    db: AsyncSession, chat_id: int, user_id: int, message_id: int | None
-) -> ChatMember | None:
-    member = await db.scalar(
-        select(ChatMember).where(
-            ChatMember.chat_id == chat_id,
-            ChatMember.user_id == user_id,
-        )
-    )
-    if member is None:
-        return None
-    if message_id is None:
-        message_id = await db.scalar(
-            select(func.max(Message.id)).where(Message.chat_id == chat_id)
-        )
-    else:
-        belongs_to_chat = await db.scalar(
-            select(Message.id).where(
-                Message.id == message_id,
-                Message.chat_id == chat_id,
-            )
-        )
-        if belongs_to_chat is None:
-            return member
-    if message_id is not None:
-        member.last_read_message_id = message_id
-        await db.commit()
-        await db.refresh(member)
+    db: AsyncSession, member: ChatMember, message_id: int
+) -> ChatMember:
+    member.last_read_message_id = message_id
+    await db.commit()
+    await db.refresh(member)
     return member
 
-async def chat_to_out(db: AsyncSession, chat: Chat, user_id: int) -> ChatOut:
-    member = next((item for item in chat.members if item.user_id == user_id), None)
-    unread_count = 0
-    if member and member.last_read_message_id is not None:
-        unread_count = await db.scalar(
-            select(func.count(Message.id)).where(
-                Message.chat_id == chat.id,
-                Message.id > member.last_read_message_id,
-            )
-        ) or 0
-    elif member:
-        unread_count = await db.scalar(
-            select(func.count(Message.id)).where(Message.chat_id == chat.id)
-        ) or 0
+def chat_to_out(chat: Chat, unread_count: int = 0) -> ChatOut:
 
     last_message = None
     if chat.last_message:
@@ -199,9 +180,21 @@ async def chat_to_out(db: AsyncSession, chat: Chat, user_id: int) -> ChatOut:
         unread_count=unread_count,
     )
 
+
+async def chat_to_out_for_user(db: AsyncSession, chat: Chat, user_id: int) -> ChatOut:
+    unread_counts = await get_unread_counts(db, [chat.id], user_id)
+    return chat_to_out(chat, unread_counts.get(chat.id, 0))
+
+
 async def is_chat_member(db: AsyncSession, chat_id: int, user_id: int) -> bool:
-    stmt = select(ChatMember.chat_id).where(ChatMember.chat_id == chat_id, ChatMember.user_id == user_id)
-    return (await db.scalar(stmt)) is not None
+    return (
+        await db.scalar(
+            select(ChatMember.chat_id).where(
+                ChatMember.chat_id == chat_id,
+                ChatMember.user_id == user_id,
+            )
+        )
+    ) is not None
 
 async def create_chat_avatar_presign(
     chat: Chat, content_type: str, size: int
