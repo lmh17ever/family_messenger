@@ -217,6 +217,9 @@ __marimo__/
 # Test DB
 foo.db
 
+# logs
+*/logs/*
+
 nul
 plan.md
 backend/alembic/versions

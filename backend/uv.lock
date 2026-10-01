@@ -120,6 +120,18 @@ wheels = [
 ]
 
 [[package]]
+name = "asgi-correlation-id"
+version = "5.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "starlette" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2a/25/df29145ef02ca69548e82b50ed15ac5c438ab5caf7b8e717d2b1258f5bea/asgi_correlation_id-5.0.1.tar.gz", hash = "sha256:ad54374a300f000b8bef3b39738768842394de0a3c528a6f77ef3ca053eb89a1", size = 10642, upload-time = "2026-06-09T15:09:49.112Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ae/fe/3f5a304ddc2b625a6a2fda913b29bc4675c434016557592791cf1aa39a60/asgi_correlation_id-5.0.1-py3-none-any.whl", hash = "sha256:dfea97c1fc41e8eadc3e518a311427cba6e7e79d9ddb6a6c7ea8879f2408d91d", size = 12026, upload-time = "2026-06-09T15:09:48.155Z" },
+]
+
+[[package]]
 name = "asyncpg"
 version = "0.31.0"
 source = { registry = "https://pypi.org/simple" }
@@ -150,6 +162,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "aiosqlite" },
     { name = "alembic" },
+    { name = "asgi-correlation-id" },
     { name = "asyncpg" },
     { name = "bcrypt" },
     { name = "boto3" },
@@ -158,8 +171,10 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pyjwt" },
+    { name = "python-json-logger" },
     { name = "redis", extra = ["hiredis"] },
     { name = "sqlalchemy", extra = ["asyncio"] },
+    { name = "timing-asgi" },
     { name = "uvicorn", extra = ["standard"] },
     { name = "websockets" },
 ]
@@ -168,6 +183,7 @@ dependencies = [
 requires-dist = [
     { name = "aiosqlite", specifier = ">=0.22.1" },
     { name = "alembic", specifier = ">=1.20.0" },
+    { name = "asgi-correlation-id", specifier = ">=5.0.1" },
     { name = "asyncpg", specifier = ">=0.31.0" },
     { name = "bcrypt", specifier = ">=5.0.0" },
     { name = "boto3", specifier = ">=1.43.99" },
@@ -176,8 +192,10 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.13.5" },
     { name = "pydantic-settings", specifier = ">=2.15.0" },
     { name = "pyjwt", specifier = ">=2.14.0" },
+    { name = "python-json-logger", specifier = ">=4.2.0" },
     { name = "redis", extras = ["hiredis"], specifier = ">=5.2.0" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.54" },
+    { name = "timing-asgi", specifier = ">=0.3.2" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.53.0" },
     { name = "websockets", specifier = ">=17.1" },
 ]
@@ -906,6 +924,15 @@ wheels = [
 ]
 
 [[package]]
+name = "python-json-logger"
+version = "4.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/21/25/5473e46b179f8e8b4ad3aeeb36773d1701b7770eaf5e5bc2025c7303b598/python_json_logger-4.2.0.tar.gz", hash = "sha256:e371ebe22ec01e289850102091a2b1f6fc9e655c7f1f5f29073936756c290afa", size = 18211, upload-time = "2026-08-15T11:36:38.232Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/dc/55/6467fde553886cb293e41538f3a8b4e4fd4688c6df242cf982162d8367fb/python_json_logger-4.2.0-py3-none-any.whl", hash = "sha256:158a52126fcd6869e09574d2b66272666f3dc8f468c62637ef9a1fa883719cb9", size = 14988, upload-time = "2026-08-15T11:36:36.821Z" },
+]
+
+[[package]]
 name = "python-multipart"
 version = "0.0.32"
 source = { registry = "https://pypi.org/simple" }
@@ -1138,6 +1165,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b5/b4/205b0d5241d934e8add0c38aa924c4f9fb7330834ff11e5444db964ec3f9/starlette-1.6.0.tar.gz", hash = "sha256:d4e3ac5e546444960c710297a3c9fc3f7ebae1b7e963f3d36173b49da535be9b", size = 2716969, upload-time = "2026-08-08T18:27:57.512Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c8/cb/6a6a47d5b464bd08695d254f3da6e7986cc70c9fa5d778eda57538edfe56/starlette-1.6.0-py3-none-any.whl", hash = "sha256:a86dd39d14bb45f85a3d18525215a9ef0cfd1f192ac793220e72598c90335f0c", size = 75969, upload-time = "2026-08-08T18:27:56.196Z" },
+]
+
+[[package]]
+name = "timing-asgi"
+version = "0.3.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/76/24/fec16231e437152dd84c0e41795a41dd6d71580074ae9097bf80af5daa44/timing_asgi-0.3.2.tar.gz", hash = "sha256:128aac498c3f87184ace1406bc077d97dd1318586a569d1b0307b0f3083097c4", size = 4617, upload-time = "2026-02-17T11:24:47.824Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0c/97/29a634bad0b16c2aace29982c7c885a0baff90b48332d0fffb0ff02dbb55/timing_asgi-0.3.2-py3-none-any.whl", hash = "sha256:cadd0d7d8864fce5bef39d97ecd6963ff557eeeaaa53ee0e1cd61cca1becad7a", size = 6468, upload-time = "2026-02-17T11:24:46.359Z" },
 ]
 
 [[package]]
