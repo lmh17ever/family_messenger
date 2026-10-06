@@ -1,53 +1,43 @@
 services:
+
   web:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost}
-        PUBLIC_S3_BASE_URL: ${PUBLIC_S3_BASE_URL:-https://storage.clo.ru}
-        PUBLIC_S3_PUBLIC_BUCKET: ${PUBLIC_S3_PUBLIC_BUCKET:-messenger-public-bucket}
-    image: family-messenger-web:latest
-    restart: unless-stopped
+        PUBLIC_S3_BASE_URL: ${PUBLIC_S3_BASE_URL}
+        PUBLIC_S3_PUBLIC_BUCKET: ${PUBLIC_S3_PUBLIC_BUCKET}
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       backend:
-        condition: service_started
+        condition: service_healthy
     networks:
-      - app
-    healthcheck:
-      test: ["CMD", "sh", "-c", "wget -q -O /dev/null http://localhost/ || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-
+      - app_network
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-      args:
-        PYTHON_VERSION: ${PYTHON_VERSION:-3.14}
-    image: family-messenger-backend:latest
-    restart: unless-stopped
     env_file:
-      - ./.env
+      - .env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-user}:${DB_PASSWORD:-password}@db:5432/${DB_NAME:-messenger}
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
       - REDIS_URL=redis://redis:6379/0
+      - PYTHONUNBUFFERED=1
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
     networks:
-      - app
+      - app_network
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health').status==200 else 1)"]
+      test: ["CMD", "python", "-c", "import urllib.request; import sys; try: res = urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=5); sys.exit(0 if res.status==200 else 1) except Exception: sys.exit(1)"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -55,18 +45,16 @@ services:
 
   db:
     image: postgres:16-alpine
-    restart: unless-stopped
     environment:
-      POSTGRES_USER: ${DB_USER:-user}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
-      POSTGRES_DB: ${DB_NAME:-messenger}
-      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
-      - app
+      - app_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-user} -d ${DB_NAME:-messenger}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -74,14 +62,13 @@ services:
 
   redis:
     image: redis:7-alpine
-    restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
       - redis-data:/data
     command: ["redis-server", "--appendonly", "yes"]
     networks:
-      - app
+      - app_network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -89,10 +76,30 @@ services:
       retries: 5
       start_period: 5s
 
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "sh", "-c", "wget -q -O /dev/null http://localhost/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
 volumes:
   postgres-data:
   redis-data:
 
 networks:
-  app:
+  app_network:
     driver: bridge
