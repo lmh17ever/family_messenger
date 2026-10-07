@@ -7,17 +7,22 @@ from datetime import datetime
 from app.db.base import Base
 
 
+KEY_LENGTH = 255
+FILENAME_LEGNTH = 255
+CONTENT_TYPE_LENGHT = 128
+
+
 class Attachment(Base):
     __tablename__ = "attachment"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    key: Mapped[str] = mapped_column(String(255), unique=True)
+    key: Mapped[str] = mapped_column(String(KEY_LENGTH), unique=True)
     chat_id: Mapped[int] = mapped_column(ForeignKey("chat.id", ondelete="CASCADE"), index=True)
     uploader_id: Mapped[int | None] = mapped_column(ForeignKey("user.id", ondelete="SET NULL"), index=True)
     message_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("message.id", ondelete="CASCADE"), index=True
     ) 
-    filename: Mapped[str] = mapped_column(String(255))
-    content_type: Mapped[str] = mapped_column(String(128))
+    filename: Mapped[str] = mapped_column(String(FILENAME_LEGNTH))
+    content_type: Mapped[str] = mapped_column(String(CONTENT_TYPE_LENGHT))
     size: Mapped[int] = mapped_column(BigInteger)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

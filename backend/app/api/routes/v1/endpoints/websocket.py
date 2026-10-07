@@ -2,7 +2,7 @@ import asyncio
 import json
 from contextlib import suppress
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, status
 from jwt.exceptions import InvalidTokenError
 from pydantic import ValidationError
 from sqlalchemy import select
@@ -35,11 +35,11 @@ async def chat_websocket(
     user: User | None = Depends(get_websocket_user),
 ) -> None:
     if user is None:
-        await websocket.close(code=1008, reason="Authentication required")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Authentication required")
         return
 
     if not await is_chat_member(db, chat_id, user.id):
-        await websocket.close(code=1008, reason="Chat membership required")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Chat membership required")
         return
 
     await websocket_manager.connect(
@@ -90,7 +90,7 @@ async def chat_websocket(
 @router.websocket("/users/me/ws")
 async def user_websocket(websocket: WebSocket, user: User | None = Depends(get_websocket_user)) -> None:
     if user is None:
-        await websocket.close(code=1008, reason="Authentication required")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Authentication required")
         return
 
     await websocket_manager.connect(

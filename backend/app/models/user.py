@@ -9,6 +9,7 @@ from app.db.base import Base
 USERNAME_LENGTH = 30
 AVATAR_KEY_LENGTH = 1024
 
+
 class User(Base):
     __tablename__ = "user"
 

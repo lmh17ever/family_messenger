@@ -12,6 +12,7 @@ from app.schemas.attachment import AvatarPresignOut
 from app.schemas.storage import AvatarConfirmIn, PresignRequest
 from app.services.attachments import AttachmentInvalid
 from app.services.avatars import confirm_avatar, create_avatar_presign
+from app.core.config import settings
 
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -50,7 +51,7 @@ async def presign_avatar(
     try:
         return await create_avatar_presign(user, avatar_in.content_type, avatar_in.size)
     except AttachmentInvalid as e:
-        raise HTTPException(422, str(e))
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(e))
 
 
 @router.post("/me/avatar/confirm", response_model=UserOut)
@@ -71,7 +72,7 @@ async def get_users_endpoint(
     user: User = Depends(get_current_user),
     search: str | None = None,
     offset: int = 0,
-    limit: int = 100
+    limit: int = settings.DEFAULT_LIMIT
 ):
     users = await get_users(db, offset=offset, limit=limit, search=search, exclude_user_id=user.id)
     return [UserOut.from_user(user) for user in users]
@@ -83,7 +84,7 @@ async def get_user_endpoint(
 ):
     user = await get_user(db, user_id)
     if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return UserOut.from_user(user)
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT, name="Delete user")
@@ -93,7 +94,7 @@ async def delete_user_endpoint(
     current_user: User = Depends(get_current_user),
 ):
     if not current_user.is_superuser or current_user.id != user_id:
-        raise HTTPException(status_code=403, detail="Cannot delete another user")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot delete another user")
     deleted = await delete_user(db, user_id)
     if not deleted:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")

@@ -2,14 +2,16 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.config import settings
 from app.models.user import User
+from app.schemas.token import PASSWORD_LENGTH
+from app.models.user import USERNAME_LENGTH
 
 
 class UserBase(BaseModel):
-    username: str = Field(min_length=1, max_length=30)
+    username: str = Field(min_length=1, max_length=USERNAME_LENGTH)
 
 
 class UserCreate(UserBase):
-    password: str = Field(min_length=6, max_length=72)
+    password: str = Field(min_length=6, max_length=PASSWORD_LENGTH)
 
 
 class UsernameUpdate(UserBase):

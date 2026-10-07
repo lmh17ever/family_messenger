@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.session import get_session
@@ -16,7 +16,7 @@ from app.core.storage import presign_get
 
 router = APIRouter()
 
-@router.post("/chats/{chat_id}/attachments/presign", response_model=PresignOut, status_code=201)
+@router.post("/chats/{chat_id}/attachments/presign", response_model=PresignOut, status_code=status.HTTP_201_CREATED)
 async def presign_attachment(
     body: PresignRequest,
     chat: Chat = Depends(get_chat_as_member),
@@ -26,7 +26,7 @@ async def presign_attachment(
     try:
         att, upload = await create_attachment_presign(db, chat, user, body)
     except AttachmentInvalid as e:
-        raise HTTPException(422, str(e))
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(e))
     return PresignOut(attachment_id=att.id, upload=upload)
 
 
@@ -51,15 +51,15 @@ async def confirm_attachment_endpoint(
     attachment = await db.get(Attachment, attachment_id)
 
     if attachment is None:
-        raise HTTPException(404, "Attachment not found")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Attachment not found")
 
     if attachment.uploader_id != user.id:
-        raise HTTPException(404, "Forbidden")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Forbidden")
 
     try:
         attachment = await confirm_attachment(db, attachment)
     except AttachmentInvalid as e:
-        raise HTTPException(400, str(e))
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
 
     return AttachmentOut(
         id=attachment.id,

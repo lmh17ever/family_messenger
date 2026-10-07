@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.schemas.message import MessageOut, MessageCreate, MessageUpdate
 from app.api.dependencies.session import get_session
@@ -13,6 +13,7 @@ from app.models.message import Message
 from app.services.attachments import AttachmentForbidden, AttachmentInvalid, AttachmentNotFound
 from app.core.realtime.redis_manager import redis_manager
 from app.services.realtime.event_service import event_service
+from app.core.config import settings
 
 
 router = APIRouter(prefix="/chats/{chat_id}/messages", tags=["messages"])
@@ -41,17 +42,17 @@ async def create_message_endpoint(
         )
         return response
     except AttachmentNotFound:
-        raise HTTPException(422, "unknown attachment")
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "unknown attachment")
     except AttachmentForbidden:
-        raise HTTPException(403, "attachment not accessible")
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "attachment not accessible")
     except AttachmentInvalid as e:
-        raise HTTPException(422, str(e))
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(e))
 
 @router.get("", response_model=list[MessageOut], name="Get messages")
 async def get_messages_endpoint(
     chat: Chat = Depends(get_chat_as_member),
     before_id:int | None = None,
-    limit: int = 100,
+    limit: int = settings.DEFAULT_LIMIT,
     search: str | None = None,
     db: AsyncSession = Depends(get_session)
 ):
@@ -74,7 +75,7 @@ async def update_message_endpoint(
 ):
     message = await db.get(Message, message_id)
     if message is None or message.chat_id != chat.id or message.sender_id != sender.id:
-        raise HTTPException(404, "Message not found")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Message not found")
     updated = await update_message(db, message, message_in.text)
     response = message_to_out(updated)
     await redis_manager.publish(
@@ -83,7 +84,7 @@ async def update_message_endpoint(
     )
     return response
 
-@router.delete("/{message_id}", status_code=204, name="Delete message")
+@router.delete("/{message_id}", status_code=status.HTTP_204_NO_CONTENT, name="Delete message")
 async def delete_message_endpoint(
     message_id: int,
     chat: Chat = Depends(get_chat_as_member),
@@ -92,7 +93,7 @@ async def delete_message_endpoint(
 ):
     message = await db.get(Message, message_id)
     if message is None or message.chat_id != chat.id or message.sender_id != sender.id:
-        raise HTTPException(404, "Message not found")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Message not found")
     await delete_message(db, message_id)
     await redis_manager.publish(
         event_service.generate_chat_channel_name(chat.id),

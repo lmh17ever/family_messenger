@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from app.models.message import Message
     from app.models.user import User
 
+
 TITLE_LENGTH = 128
 AVATAR_KEY_LENGTH = 1024
 DIRECT_KEY_LENGTH = 32

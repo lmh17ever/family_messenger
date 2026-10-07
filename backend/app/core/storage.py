@@ -40,7 +40,7 @@ def presign_post(bucket: str, key: str, content_type: str, max_size: int) -> dic
             {"Content-Type": content_type},
             ["content-length-range", 1, max_size],
         ],
-        ExpiresIn=300,
+        ExpiresIn=settings.PRESIGN_POST_LINK_LIFETIME_SECONDS,
     )
 
 
@@ -49,7 +49,7 @@ def presign_get(
     key: str,
     filename: str,
     content_type: str,
-    expires_in: int = 300,
+    expires_in: int = settings.PRESIGN_GET_LINK_LIFETIME_SECONDS,
 ) -> str:
     from urllib.parse import quote
 

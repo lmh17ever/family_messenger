@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     POOL_RECYCLE: int = 1800
     POOL_PRE_PING: bool = True
 
+    # Pagination
+    DEFAULT_LIMIT: int = 50
+
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
 
@@ -61,6 +64,14 @@ class Settings(BaseSettings):
 
     MAX_AVATAR_SIZE: int
     MAX_ATTACHMENT_SIZE: int
+
+    PRESIGN_GET_LINK_LIFETIME_SECONDS: int = 300
+    PRESIGN_POST_LINK_LIFETIME_SECONDS: int = 300
+
+    # Logging
+    LOG_FILE_MAX_SIZE: int = 100_000
+    MAX_COUNT_LOG_FILES: int = 3
+
 
     @property
     def DATABASE_URL(self) -> str:

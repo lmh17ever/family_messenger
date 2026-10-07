@@ -34,6 +34,7 @@ from app.services.chat import (
     remove_chat_member,
 )
 from app.services.attachments import AttachmentInvalid
+from app.core.config import settings
 
 router = APIRouter(prefix="/chats", tags=["chats"])
 
@@ -50,6 +51,8 @@ async def get_or_create_chat_enpoint(
         user2_id=user_id
     )
     chat = await get_chat_for_user(db, chat.id, current_user.id)
+    if chat is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Chat not found")
     return await chat_to_out_for_user(db, chat, current_user.id)
 
 @router.post("", response_model=ChatOut, name="Create group chat")
@@ -67,7 +70,7 @@ async def get_my_chats_endpoint(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
     offset: int = 0,
-    limit: int = 100
+    limit: int = settings.DEFAULT_LIMIT
 ):
       chats = await get_my_chats(
            user_id=current_user.id,
@@ -86,7 +89,7 @@ async def get_chat_endpoint(
 ):
     chat = await get_chat_for_user(db, chat_id, user.id)
     if chat is None:
-        raise HTTPException(404, "Chat not found")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Chat not found")
     return await chat_to_out_for_user(db, chat, user.id)
 
 @router.post("/{chat_id}/read", response_model=ChatOut, name="Mark chat as read")
@@ -99,7 +102,7 @@ async def mark_chat_read_endpoint(
     chat = await get_chat_for_user(db, chat_id, user.id)
 
     if chat is None:
-        raise HTTPException(404, "Chat not found")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Chat not found")
 
     member = await db.scalar(
         select(ChatMember).where(
@@ -114,7 +117,7 @@ async def mark_chat_read_endpoint(
             select(func.max(Message.id)).where(Message.chat_id == chat.id)
         )
         if last_message is None:
-            raise HTTPException(400, "No messages yet in the chat")
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "No messages yet in the chat")
         data.message_id = last_message
 
     belongs_to_chat = await db.scalar(
@@ -124,7 +127,7 @@ async def mark_chat_read_endpoint(
         )
     )
     if not belongs_to_chat:
-        raise HTTPException(400, "This message doesn't belong to the chat")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "This message doesn't belong to the chat")
 
     await mark_chat_read(db, member, data.message_id)
     return await chat_to_out_for_user(db, chat, user.id)
@@ -137,7 +140,7 @@ async def presign_group_avatar(
     try:
         return await create_chat_avatar_presign(chat, data.content_type, data.size)
     except AttachmentInvalid as e:
-        raise HTTPException(422, str(e))
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(e))
 
 @router.post("/{chat_id}/avatar/confirm", response_model=ChatOut, name="Confirm group avatar")
 async def confirm_group_avatar(
@@ -149,13 +152,13 @@ async def confirm_group_avatar(
     try:
         await confirm_chat_avatar(db, chat, data.avatar_key)
     except AttachmentInvalid as e:
-        raise HTTPException(422, str(e))
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(e))
     updated_chat = await get_chat_for_user(db, chat.id, user.id)
     if updated_chat is None:
-        raise HTTPException(404, detail="Chat not found")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Chat not found")
     return await chat_to_out_for_user(db, chat=updated_chat, user_id=user.id)
 
-@router.post("/{chat_id}/members", status_code=201, name="Add chat member")
+@router.post("/{chat_id}/members", status_code=status.HTTP_201_CREATED, name="Add chat member")
 async def add_member(
     data: ChatMemberIn,
     chat: Chat = Depends(get_chat_as_member),
@@ -163,10 +166,10 @@ async def add_member(
     user: User = Depends(get_current_user),
 ):
     if chat.type != ChatType.GROUP or chat.creator_id != user.id:
-        raise HTTPException(403, "Only the chat creator can manage members")
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the chat creator can manage members")
     return await add_chat_member(db, chat.id, data.user_id)
 
-@router.delete("/{chat_id}/members/{user_id}", status_code=204, name="Remove chat member")
+@router.delete("/{chat_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT, name="Remove chat member")
 async def remove_member(
     user_id: int,
     chat: Chat = Depends(get_chat_as_member),
@@ -174,7 +177,7 @@ async def remove_member(
     current_user: User = Depends(get_current_user),
 ):
     if chat.type != ChatType.GROUP or chat.creator_id != current_user.id:
-        raise HTTPException(403, "Only the chat creator can manage members")
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the chat creator can manage members")
     await remove_chat_member(db, chat.id, user_id)
 
 @router.delete("/{chat_id}", status_code=status.HTTP_204_NO_CONTENT, name="Delete chat")
@@ -184,4 +187,4 @@ async def delete_chat_endpoint(
 ):
     deleted = await delete_chat(db, chat.id)
     if not deleted:
-        raise HTTPException(status_code=404, detail="Chat not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")

@@ -2,6 +2,9 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+# To protect API
+PASSWORD_LENGTH = 72
+
 
 class Token(BaseModel):
     """Schema for JWT token response."""
@@ -21,7 +24,7 @@ class UserLogin(BaseModel):
     """Schema for user login request."""
 
     username: str
-    password: str = Field(max_length=72)
+    password: str = Field(max_length=PASSWORD_LENGTH)
 
 
 class RefreshToken(BaseModel):

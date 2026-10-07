@@ -5,9 +5,11 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator, field_valida
 from app.schemas.attachment import AttachmentOut
 from app.schemas.user import UserOut
 
+MESSAGE_TEXT_LENGTH = 10_000
+
 
 class MessageCreate(BaseModel):
-    text: str | None = Field(default=None, max_length=10_000)
+    text: str | None = Field(default=None, max_length=MESSAGE_TEXT_LENGTH)
     attachment_ids: list[int] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -34,7 +36,7 @@ class MessageCreate(BaseModel):
 
 
 class MessageUpdate(BaseModel):
-    text: str = Field(max_length=10_000)
+    text: str = Field(max_length=MESSAGE_TEXT_LENGTH)
 
 
 class MessageOut(BaseModel):

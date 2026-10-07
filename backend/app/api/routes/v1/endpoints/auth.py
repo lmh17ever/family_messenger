@@ -26,10 +26,9 @@ logger = logging.getLogger("__main__")
 
 @router.post("/register", response_model=Token, summary="Register a new user")
 async def register_user(user_in: UserCreate, db: AsyncSession = Depends(get_session)):
-    """Register a new user account and return JWT tokens."""
     existing_user_by_username = await get_user_by_username(db, user_in.username)
     if existing_user_by_username:
-        raise HTTPException(status_code=409, detail="Username already registered")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already registered")
     created_user = await create_user(db, user_in)
     return create_tokens(created_user.id)
 
@@ -39,7 +38,6 @@ async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_session),
 ):
-    """OAuth2 compatible token login, get an access token for future requests."""
     user = await authenticate_user(db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(

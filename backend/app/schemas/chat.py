@@ -5,6 +5,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.models.chat import ChatType
 from app.schemas.message import MessageOut
 from app.schemas.user import UserOut
+from app.models.user import AVATAR_KEY_LENGTH
+from app.models.attachment import CONTENT_TYPE_LENGHT
 
 
 class ChatBase(BaseModel):
@@ -41,11 +43,11 @@ class ChatReadIn(BaseModel):
 
 
 class ChatAvatarConfirmIn(BaseModel):
-    avatar_key: str = Field(min_length=1, max_length=1024)
+    avatar_key: str = Field(min_length=1, max_length=AVATAR_KEY_LENGTH)
 
 
 class ChatAvatarPresignIn(BaseModel):
-    content_type: str = Field(min_length=1, max_length=128)
+    content_type: str = Field(min_length=1, max_length=CONTENT_TYPE_LENGHT)
     size: int = Field(gt=0)
 
 
