@@ -58,20 +58,20 @@ def setup_logging() -> None:
             "uvicorn": {
                 "handlers": [ "stdout", "app_file_json",
                 ],
-                "level": "INFO",
+                "level": "WARNING",
             },
             "uvicorn.access": {
                 "handlers": ["stdout", "app_file_json",
                 ],
-                "level": "INFO",
+                "level": "WARNING",
             },
             "app.timing": {
                 "handlers": ["stdout", "app_file_json"],
-                "level": "INFO",
+                "level": "WARNING",
             },
             "sqlalchemy.engine": {
                 "handlers": ["stdout", "app_file_json"],
-                "level": "INFO",
+                "level": "WARNING",
             },
         },
         "root": {"level": "DEBUG", "handlers": ["stdout", "stderr"]},

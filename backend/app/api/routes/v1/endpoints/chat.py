@@ -33,6 +33,7 @@ from app.services.chat import (
     mark_chat_read,
     remove_chat_member,
 )
+from app.services.attachments import AttachmentInvalid
 
 router = APIRouter(prefix="/chats", tags=["chats"])
 
@@ -133,7 +134,10 @@ async def presign_group_avatar(
     data: ChatAvatarPresignIn,
     chat: Chat = Depends(get_chat_as_member),
 ):
-    return await create_chat_avatar_presign(chat, data.content_type, data.size)
+    try:
+        return await create_chat_avatar_presign(chat, data.content_type, data.size)
+    except AttachmentInvalid as e:
+        raise HTTPException(422, str(e))
 
 @router.post("/{chat_id}/avatar/confirm", response_model=ChatOut, name="Confirm group avatar")
 async def confirm_group_avatar(
@@ -142,8 +146,14 @@ async def confirm_group_avatar(
     db: AsyncSession = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    chat = await confirm_chat_avatar(db, chat, data.avatar_key)
-    return await chat_to_out_for_user(db, chat, user.id)
+    try:
+        await confirm_chat_avatar(db, chat, data.avatar_key)
+    except AttachmentInvalid as e:
+        raise HTTPException(422, str(e))
+    updated_chat = await get_chat_for_user(db, chat.id, user.id)
+    if updated_chat is None:
+        raise HTTPException(404, detail="Chat not found")
+    return await chat_to_out_for_user(db, chat=updated_chat, user_id=user.id)
 
 @router.post("/{chat_id}/members", status_code=201, name="Add chat member")
 async def add_member(

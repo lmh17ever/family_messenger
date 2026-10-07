@@ -11,6 +11,7 @@ from app.models.attachment import Attachment
 from app.schemas.storage import PresignOut, PresignRequest
 from app.schemas.attachment import AttachmentOut, AttachmentURLOut
 from app.services.attachments import AttachmentForbidden, AttachmentInvalid, AttachmentNotFound, confirm_attachment, create_attachment_presign, get_attachment_download_url
+from app.core.storage import presign_get
 
 
 router = APIRouter()
@@ -60,4 +61,15 @@ async def confirm_attachment_endpoint(
     except AttachmentInvalid as e:
         raise HTTPException(400, str(e))
 
-    return attachment
+    return AttachmentOut(
+        id=attachment.id,
+        filename=attachment.filename,
+        content_type=attachment.content_type,
+        size=attachment.size,
+        url=presign_get(
+            settings.S3_PRIVATE_BUCKET,
+            attachment.key,
+            attachment.filename,
+            attachment.content_type,
+        ),
+    )

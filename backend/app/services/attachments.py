@@ -1,5 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import uuid4
 
 from app.schemas.storage import PresignRequest
 from app.models.attachment import Attachment

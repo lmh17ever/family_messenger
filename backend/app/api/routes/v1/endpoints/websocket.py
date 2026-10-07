@@ -62,7 +62,7 @@ async def chat_websocket(
             try:
                 message_in = MessageCreate.model_validate(event.get("message", {}))
             except ValidationError as error:
-                await websocket.send_json({"type": "error", "detail": error.errors()})
+                await websocket.send_json({"type": "error", "detail": error.errors(include_context=False)})
                 continue
             chat = await db.get(Chat, chat_id)
             if chat is None:
